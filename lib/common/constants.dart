@@ -6,6 +6,10 @@ class StyleString {
   static const BorderRadius mdRadius = BorderRadius.all(imgRadius);
   static const Radius imgRadius = Radius.circular(10);
   static const double aspectRatio = 16 / 10;
+  static const bottomSheetRadius = BorderRadius.only(
+    topLeft: Radius.circular(18),
+    topRight: Radius.circular(18),
+  );
 }
 
 class Constants {
@@ -21,19 +25,20 @@ class Constants {
   static const String traceId =
       '11111111111111111111111111111111:1111111111111111:0:0';
   static const String userAgent =
-      'Mozilla/5.0 BiliDroid/1.46.2 (bbcallen@gmail.com) os/android model/vivo mobi_app/android_hd build/2001100 channel/yingyongbao innerVer/2001100 osVer/14 network/2';
+      'Mozilla/5.0 BiliDroid/2.0.1 (bbcallen@gmail.com) os/android model/android_hd mobi_app/android_hd build/2001100 channel/master innerVer/2001100 osVer/15 network/2';
   static const String statistics =
-      '{"appId":5,"platform":3,"version":"1.46.2","abtest":""}';
+      '{"appId":5,"platform":3,"version":"2.0.1","abtest":""}';
   // 请求时会自动encodeComponent
 
   // app
   static const String userAgentApp =
-      'Mozilla/5.0 BiliDroid/8.43.0 (bbcallen@gmail.com) os/android model/android mobi_app/android build/8430300 channel/bili innerVer/8430300 osVer/15 network/2';
-  static const String statisticsApp =
-      '{"appId":5,"platform":3,"version":"8.43.0","abtest":""}';
+      'Mozilla/5.0 BiliDroid/8.43.0 (bbcallen@gmail.com) os/android model/android mobi_app/android build/8430300 channel/master innerVer/8430300 osVer/15 network/2';
 
-  static const urlPattern =
-      r'https?://[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]';
+  static const String statisticsApp =
+      '{"appId":1,"platform":3,"version":"8.43.0","abtest":""}';
+
+  static final urlRegex =
+      RegExp(r'https?://[-A-Za-z0-9+&@#/%?=~_|!:,.;]+[-A-Za-z0-9+&@#/%=~_|]');
 
   static const goodsUrlPrefix = "https://gaoneng.bilibili.com/tetris";
 

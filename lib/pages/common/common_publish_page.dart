@@ -6,15 +6,18 @@ import 'package:PiliPlus/common/widgets/button/icon_button.dart';
 import 'package:PiliPlus/http/msg.dart';
 import 'package:PiliPlus/models/common/image_preview_type.dart';
 import 'package:PiliPlus/models/common/publish_panel_type.dart';
+import 'package:PiliPlus/models_new/dynamic/dyn_mention/item.dart';
 import 'package:PiliPlus/models_new/emote/emote.dart';
 import 'package:PiliPlus/models_new/live/live_emote/emoticon.dart';
 import 'package:PiliPlus/models_new/upload_bfs/data.dart';
+import 'package:PiliPlus/pages/dynamics_mention/view.dart';
 import 'package:PiliPlus/utils/extension.dart';
 import 'package:PiliPlus/utils/feed_back.dart';
 import 'package:chat_bottom_container/chat_bottom_container.dart';
 import 'package:dio/dio.dart';
 import 'package:easy_debounce/easy_throttle.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 import 'package:image_cropper/image_cropper.dart';
@@ -24,14 +27,16 @@ abstract class CommonPublishPage extends StatefulWidget {
   const CommonPublishPage({
     super.key,
     this.initialValue,
+    this.mentions,
     this.imageLengthLimit,
     this.onSave,
     this.autofocus = true,
   });
 
   final String? initialValue;
+  final List<MentionItem>? mentions;
   final int? imageLengthLimit;
-  final ValueChanged<String>? onSave;
+  final ValueChanged<({String text, List<MentionItem>? mentions})>? onSave;
   final bool autofocus;
 }
 
@@ -49,11 +54,14 @@ abstract class CommonPublishPageState<T extends CommonPublishPage>
   late final RxList<String> pathList = <String>[].obs;
   int get limit => widget.imageLengthLimit ?? 9;
 
+  List<MentionItem>? mentions;
+
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
 
+    mentions = widget.mentions;
     if (widget.initialValue?.trim().isNotEmpty == true) {
       enablePublish.value = true;
     }
@@ -199,29 +207,11 @@ abstract class CommonPublishPageState<T extends CommonPublishPage>
   Future<void> onCustomPublish({required String message, List? pictures});
 
   void onChooseEmote(dynamic emote) {
-    enablePublish.value = true;
-    final int cursorPosition = editController.selection.baseOffset;
-    final String currentText = editController.text;
     if (emote is Emote) {
-      final String newText = currentText.substring(0, cursorPosition) +
-          emote.text! +
-          currentText.substring(cursorPosition);
-      editController.value = TextEditingValue(
-        text: newText,
-        selection: TextSelection.collapsed(
-            offset: cursorPosition + emote.text!.length),
-      );
+      onInsertText(emote.text!);
     } else if (emote is Emoticon) {
-      final String newText = currentText.substring(0, cursorPosition) +
-          emote.emoji! +
-          currentText.substring(cursorPosition);
-      editController.value = TextEditingValue(
-        text: newText,
-        selection: TextSelection.collapsed(
-            offset: cursorPosition + emote.emoji!.length),
-      );
+      onInsertText(emote.emoji!);
     }
-    widget.onSave?.call(editController.text);
   }
 
   Widget? get customPanel => null;
@@ -386,5 +376,131 @@ abstract class CommonPublishPageState<T extends CommonPublishPage>
         SmartDialog.showToast(e.toString());
       }
     });
+  }
+
+  List<Map<String, dynamic>>? getRichContent() {
+    if (mentions.isNullOrEmpty) {
+      return null;
+    }
+    List<Map<String, dynamic>> content = [];
+    void addPlainText(String text) {
+      content.add({
+        "raw_text": text,
+        "type": 1,
+        "biz_id": "",
+      });
+    }
+
+    final pattern = RegExp(
+        mentions!.toSet().map((e) => RegExp.escape('@${e.name!}')).join('|'));
+
+    editController.text.splitMapJoin(
+      pattern,
+      onMatch: (Match match) {
+        final name = match.group(0)!;
+        final item =
+            mentions!.firstWhereOrNull((e) => e.name == name.substring(1));
+        if (item != null) {
+          content.add({
+            "raw_text": name,
+            "type": 2,
+            "biz_id": item.uid,
+          });
+        } else {
+          addPlainText(name);
+        }
+        return '';
+      },
+      onNonMatch: (String text) {
+        addPlainText(text);
+        return '';
+      },
+    );
+    return content;
+  }
+
+  double _mentionOffset = 0;
+  void onMention([bool fromClick = false]) {
+    controller.keepChatPanel();
+    DynMentionPanel.onDynMention(
+      context,
+      offset: _mentionOffset,
+      callback: (offset) => _mentionOffset = offset,
+    ).then((MentionItem? res) {
+      if (res != null) {
+        (mentions ??= <MentionItem>[]).add(res);
+
+        String atName = '${fromClick ? '@' : ''}${res.name} ';
+
+        onInsertText(atName);
+      }
+    });
+  }
+
+  void onInsertText(String text) {
+    if (text.isEmpty) {
+      return;
+    }
+
+    enablePublish.value = true;
+
+    final oldValue = editController.value;
+    final selection = oldValue.selection;
+
+    if (selection.isValid) {
+      TextEditingDelta delta;
+
+      if (selection.isCollapsed) {
+        delta = TextEditingDeltaInsertion(
+          oldText: oldValue.text,
+          textInserted: text,
+          insertionOffset: selection.start,
+          selection: TextSelection.collapsed(
+            offset: selection.start + text.length,
+          ),
+          composing: TextRange.empty,
+        );
+      } else {
+        delta = TextEditingDeltaReplacement(
+          oldText: oldValue.text,
+          replacementText: text,
+          replacedRange: selection,
+          selection: TextSelection.collapsed(
+            offset: selection.start + text.length,
+          ),
+          composing: TextRange.empty,
+        );
+      }
+
+      final newValue = delta.apply(oldValue);
+
+      if (oldValue == newValue) {
+        return;
+      }
+
+      editController.value = newValue;
+    } else {
+      editController.value = TextEditingValue(
+        text: text,
+        selection: TextSelection.collapsed(offset: text.length),
+      );
+    }
+
+    widget.onSave?.call((text: editController.text, mentions: mentions));
+  }
+
+  void onDelAtUser(String name) {
+    mentions!.removeFirstWhere((e) => e.name == name);
+  }
+
+  void onChanged(String value) {
+    bool isEmpty = value.trim().isEmpty;
+    if (isEmpty) {
+      enablePublish.value = false;
+      mentions?.clear();
+    } else {
+      enablePublish.value = true;
+    }
+    widget.onSave?.call((text: value, mentions: mentions));
   }
 }
