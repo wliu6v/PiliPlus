@@ -199,11 +199,16 @@ class MainController extends GetxController
     int defaultHomePage = Pref.defaultHomePage;
     late final List<NavigationBarType> navigationBars;
     if (navBarSort == null) {
-      navigationBars = NavigationBarType.values;
+      navigationBars = [
+        NavigationBarType.home,
+        NavigationBarType.dynamics,
+        NavigationBarType.media,
+      ];
     } else {
       navigationBars =
           navBarSort.map((i) => NavigationBarType.values[i]).toList();
     }
+
     this.navigationBars = navigationBars;
     selectedIndex.value =
         max(0, navigationBars.indexWhere((e) => e.index == defaultHomePage));

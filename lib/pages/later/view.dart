@@ -57,6 +57,8 @@ class _LaterPageState extends State<LaterPage>
 
   @override
   Widget build(BuildContext context) {
+    bool isInNavbar = Get.currentRoute == '/';
+
     return Obx(
       () => PopScope(
         canPop: !_baseCtr.enableMultiSelect.value,
@@ -68,12 +70,20 @@ class _LaterPageState extends State<LaterPage>
         child: Scaffold(
           resizeToAvoidBottomInset: false,
           appBar: _buildAppbar,
+          floatingActionButtonLocation: isInNavbar
+              ? FloatingActionButtonLocation.centerFloat
+              : FloatingActionButtonLocation.endFloat,
           floatingActionButton: Obx(
             () => currCtr().loadingState.value.isSuccess
-                ? FloatingActionButton.extended(
-                    onPressed: currCtr().toViewPlayAll,
-                    label: const Text('播放全部'),
-                    icon: const Icon(Icons.playlist_play),
+                ? Container(
+                    margin: EdgeInsets.only(
+                      bottom: isInNavbar ? 80.0 : 16.0,
+                    ),
+                    child: FloatingActionButton.extended(
+                      onPressed: currCtr().toViewPlayAll,
+                      label: const Text('播放全部'),
+                      icon: const Icon(Icons.playlist_play),
+                    ),
                   )
                 : const SizedBox.shrink(),
           ),
@@ -123,10 +133,12 @@ class _LaterPageState extends State<LaterPage>
     final theme = Theme.of(context);
     Color color = theme.colorScheme.secondary;
 
+    bool isInNavbar = Get.currentRoute == '/';
+
     return AppBarWidget(
       visible: _baseCtr.enableMultiSelect.value,
       child1: AppBar(
-        title: const Text('稍后再看'),
+        title: isInNavbar ? null : const Text('稍后再看'),
         actions: [
           IconButton(
             tooltip: '搜索',
