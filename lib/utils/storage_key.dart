@@ -44,6 +44,8 @@ abstract final class SettingBoxKey {
       fullScreenGestureReverse = 'fullScreenGestureReverse',
       enableBackgroundPlay = 'enableBackgroundPlay',
       continuePlayInBackground = 'continuePlayInBackground',
+      // 长按直接添加到稍后再看
+      longPressToWatchLater = 'longPressToWatchLater',
       appRcmd = 'appRcmd',
       enableSaveLastData = 'enableSaveLastData',
       minDurationForRcmd = 'minDurationForRcmd',
