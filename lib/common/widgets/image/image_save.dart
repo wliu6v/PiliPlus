@@ -5,6 +5,7 @@ import 'package:PiliPlus/common/widgets/selection_text.dart';
 import 'package:PiliPlus/http/user.dart';
 import 'package:PiliPlus/utils/image_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:material_ui/material_ui.dart';
 
@@ -16,6 +17,12 @@ void imageSaveDialog({
   dynamic aid,
   String? bvid,
 }) {
+  if (Pref.longPressToWatchLater && (aid != null || bvid != null)) {
+    // UserHttp.toViewLater already shows success/error toasts.
+    UserHttp.toViewLater(aid: aid, bvid: bvid);
+    return;
+  }
+
   SmartDialog.show(
     animationType: .centerScale_otherSlide,
     builder: (context) {
