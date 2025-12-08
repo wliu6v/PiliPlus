@@ -3,6 +3,7 @@ import 'package:PiliPlus/common/widgets/reorder_mixin.dart';
 import 'package:PiliPlus/common/widgets/scaffold/simple_scaffold.dart';
 import 'package:PiliPlus/models/common/enum_with_label.dart';
 import 'package:PiliPlus/utils/storage.dart';
+import 'package:PiliPlus/utils/storage_key.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -25,11 +26,17 @@ class _BarSetPageState extends State<BarSetPage> with ReorderMixin {
     super.initState();
     final Map<String, dynamic> args = Get.arguments;
     key = args['key'];
-    title = args['title'];
+    title = args['title'] ?? '';
     final List? cache = GStorage.setting.get(key);
-    list = (args['defaultBars'] as List<EnumWithLabel>)
-        .map((e) => Pair(first: e, second: cache?.contains(e.index) ?? true))
-        .toList();
+    list = (args['defaultBars'] as List<EnumWithLabel>).map((e) {
+      if (cache != null) {
+        return Pair(first: e, second: cache.contains(e.index));
+      }
+      if (key == SettingBoxKey.navBarSort && e.label == '稍后再看') {
+        return Pair(first: e, second: false);
+      }
+      return Pair(first: e, second: true);
+    }).toList();
     if (cache != null && cache.isNotEmpty) {
       final cacheIndex = {for (int i = 0; i < cache.length; i++) cache[i]: i};
       list.sort((a, b) {

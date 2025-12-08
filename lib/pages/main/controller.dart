@@ -11,6 +11,7 @@ import 'package:PiliPlus/models/common/msg/msg_unread_type.dart';
 import 'package:PiliPlus/models/common/nav_bar_config.dart';
 import 'package:PiliPlus/pages/dynamics/controller.dart';
 import 'package:PiliPlus/pages/home/controller.dart';
+import 'package:PiliPlus/pages/later/page_controller.dart';
 import 'package:PiliPlus/pages/mine/view.dart';
 import 'package:PiliPlus/services/account_service.dart';
 import 'package:PiliPlus/utils/extension/get_ext.dart';
@@ -50,6 +51,11 @@ class MainController extends GetxController
 
   late bool hasHome = false;
   late final homeController = Get.putOrFind(HomeController.new);
+
+  late bool hasLater = false;
+  late final LaterPageController laterPageController = Get.put(
+    LaterPageController(),
+  );
 
   late DynamicBadgeMode msgBadgeMode = Pref.msgBadgeMode;
   late Set<MsgUnReadType> msgUnReadTypes = Pref.msgUnReadTypeV2;
@@ -112,6 +118,7 @@ class MainController extends GetxController
     }
 
     hasHome = navigationBars.contains(NavigationBarType.home);
+    hasLater = navigationBars.contains(NavigationBarType.later);
     if (msgBadgeMode != DynamicBadgeMode.hidden) {
       if (hasHome) {
         lastCheckUnreadAt = DateTime.now().millisecondsSinceEpoch;
@@ -227,7 +234,9 @@ class MainController extends GetxController
         (GStorage.setting.get(SettingBoxKey.navBarSort) as List?)?.fromCast();
     late final List<NavigationBarType> navigationBars;
     if (navBarSort == null || navBarSort.isEmpty) {
-      navigationBars = NavigationBarType.values;
+      navigationBars = NavigationBarType.values
+          .where((type) => type != NavigationBarType.later)
+          .toList();
     } else {
       navigationBars = navBarSort
           .map((i) => NavigationBarType.values[i])
@@ -314,6 +323,8 @@ class MainController extends GetxController
               homeController.onRefresh();
             } else if (currentNav == NavigationBarType.dynamics) {
               dynamicController.onRefresh();
+            } else if (currentNav == NavigationBarType.later) {
+              laterPageController.onRefresh();
             }
           },
         );
@@ -322,6 +333,8 @@ class MainController extends GetxController
           homeController.toTopOrRefresh();
         } else if (currentNav == NavigationBarType.dynamics) {
           dynamicController.toTopOrRefresh();
+        } else if (currentNav == NavigationBarType.later) {
+          laterPageController.toTopOrRefresh();
         }
       }
       _lastSelectTime = now;
