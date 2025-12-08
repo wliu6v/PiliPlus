@@ -41,6 +41,7 @@ class _LaterPageState extends State<LaterPage>
   final _sortKey = GlobalKey();
   void listener() {
     (_sortKey.currentContext as Element?)?.markNeedsBuild();
+    _baseCtr.currentTabIndex.value = _tabController.index;
   }
 
   @override
@@ -50,6 +51,7 @@ class _LaterPageState extends State<LaterPage>
       length: LaterViewType.values.length,
       vsync: this,
     )..addListener(listener);
+    _baseCtr.currentTabIndex.value = _tabController.index;
   }
 
   @override
@@ -122,7 +124,8 @@ class _LaterPageState extends State<LaterPage>
                         text: '${item.title}${count != -1 ? '($count)' : ''}',
                       );
                     }).toList(),
-                    onTap: (_) {
+                    onTap: (index) {
+                      _baseCtr.currentTabIndex.value = index;
                       if (!_tabController.indexIsChanging) {
                         currCtr().scrollController.animToTop();
                       } else if (enableMultiSelect) {
@@ -157,6 +160,9 @@ class _LaterPageState extends State<LaterPage>
     Color color = theme.colorScheme.secondary;
     final btnStyle = TextButton.styleFrom(visualDensity: .compact);
     final textStyle = TextStyle(color: theme.colorScheme.onSurfaceVariant);
+    // Hide title when used as bottom navigation tab (no back button)
+    // Show title when navigated from other pages (has back button)
+    final bool showTitle = Navigator.canPop(context);
     return MultiSelectAppBarWidget(
       visible: enableMultiSelect,
       ctr: currCtr(),
@@ -191,7 +197,7 @@ class _LaterPageState extends State<LaterPage>
         ),
       ],
       child: AppBar(
-        title: const Text('稍后再看'),
+        title: showTitle ? const Text('稍后再看') : null,
         actions: [
           IconButton(
             tooltip: '搜索',
