@@ -42,23 +42,77 @@ class _LaterViewChildPageState extends State<LaterViewChildPage>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    return refreshIndicator(
-      onRefresh: _laterController.onRefresh,
-      child: CustomScrollView(
-        physics: const AlwaysScrollableScrollPhysics(),
-        controller: _laterController.scrollController,
-        slivers: [
-          SliverPadding(
-            padding: EdgeInsets.only(
-              top: 7,
-              bottom: MediaQuery.viewPaddingOf(context).bottom + 85,
-            ),
-            sliver: Obx(
-              () => _buildBody(_laterController.loadingState.value),
-            ),
+    return Stack(
+      children: [
+        refreshIndicator(
+          onRefresh: _laterController.onRefresh,
+          child: CustomScrollView(
+            physics: const AlwaysScrollableScrollPhysics(),
+            controller: _laterController.scrollController,
+            slivers: [
+              SliverPadding(
+                padding: EdgeInsets.only(
+                  top: 7,
+                  bottom: MediaQuery.viewPaddingOf(context).bottom + 85,
+                ),
+                sliver: Obx(
+                  () => _buildBody(_laterController.loadingState.value),
+                ),
+              ),
+            ],
           ),
-        ],
-      ),
+        ),
+        // 撤销按钮
+        Obx(
+          () => _baseCtr.showUndo.value
+              ? Positioned(
+                  right: 16,
+                  bottom: 16 + MediaQuery.viewPaddingOf(context).bottom,
+                  child: Material(
+                    elevation: 4,
+                    borderRadius: BorderRadius.circular(24),
+                    color: Theme.of(context).colorScheme.surface,
+                    child: InkWell(
+                      onTap: () async {
+                        if (_baseCtr.deletedItem != null &&
+                            _baseCtr.deletedIndex != null) {
+                          await _laterController.undoDelete(
+                            _baseCtr.deletedItem!,
+                            _baseCtr.deletedIndex!,
+                          );
+                        }
+                      },
+                      borderRadius: BorderRadius.circular(24),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 16,
+                          vertical: 12,
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.undo,
+                              size: 18,
+                              color: Theme.of(context).colorScheme.primary,
+                            ),
+                            const SizedBox(width: 8),
+                            Text(
+                              '撤销',
+                              style: TextStyle(
+                                color: Theme.of(context).colorScheme.primary,
+                                fontWeight: FontWeight.w500,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                )
+              : const SizedBox.shrink(),
+        ),
+      ],
     );
   }
 
@@ -74,32 +128,55 @@ class _LaterViewChildPageState extends State<LaterViewChildPage>
                     _laterController.onLoadMore();
                   }
                   final videoItem = response[index];
-                  return VideoCardHLater(
-                    index: index,
-                    videoItem: videoItem,
-                    ctr: _laterController,
-                    onViewLater: (cid) {
-                      PageUtils.toVideoPage(
-                        bvid: videoItem.bvid,
-                        cid: cid,
-                        cover: videoItem.pic,
-                        title: videoItem.title,
-                        dimension: videoItem.dimension,
-                        extraArguments: _baseCtr.isPlayAll.value
-                            ? {
-                                'oid': videoItem.aid,
-                                'sourceType': SourceType.watchLater,
-                                'count': _laterController
-                                    .baseCtr
-                                    .counts[LaterViewType.all.index],
-                                'favTitle': '稍后再看',
-                                'mediaId': _laterController.mid,
-                                'desc': _laterController.asc.value,
-                                'isContinuePlaying': index != 0,
-                              }
-                            : null,
+                  return Dismissible(
+                    key: ValueKey('${videoItem.aid}_$index'),
+                    direction: DismissDirection.startToEnd,
+                    background: Container(
+                      alignment: Alignment.centerLeft,
+                      padding: const EdgeInsets.only(left: 20),
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.error,
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: const Icon(
+                        Icons.delete_outline,
+                        color: Colors.white,
+                        size: 28,
+                      ),
+                    ),
+                    onDismissed: (direction) {
+                      _laterController.toViewDel(
+                        context,
+                        index,
+                        videoItem.aid,
                       );
                     },
+                    child: VideoCardHLater(
+                      index: index,
+                      videoItem: videoItem,
+                      ctr: _laterController,
+                      onViewLater: (cid) {
+                        PageUtils.toVideoPage(
+                          bvid: videoItem.bvid,
+                          cid: cid,
+                          cover: videoItem.pic,
+                          title: videoItem.title,
+                          dimension: videoItem.dimension,
+                          extraArguments: _baseCtr.isPlayAll.value
+                              ? {
+                                  'oid': videoItem.aid,
+                                  'sourceType': SourceType.watchLater,
+                                  'count': _laterController.baseCtr
+                                      .counts[LaterViewType.all.index],
+                                  'favTitle': '稍后再看',
+                                  'mediaId': _laterController.mid,
+                                  'desc': _laterController.asc.value,
+                                  'isContinuePlaying': index != 0,
+                                }
+                              : null,
+                        );
+                      },
+                    ),
                   );
                 },
                 itemCount: response.length,
