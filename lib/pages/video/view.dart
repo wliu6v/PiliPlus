@@ -46,6 +46,7 @@ import 'package:PiliPlus/plugin/pl_player/models/play_repeat.dart';
 import 'package:PiliPlus/plugin/pl_player/models/play_status.dart';
 import 'package:PiliPlus/plugin/pl_player/utils/fullscreen.dart';
 import 'package:PiliPlus/plugin/pl_player/view/view.dart';
+import 'package:PiliPlus/services/pin_service.dart';
 import 'package:PiliPlus/services/service_locator.dart';
 import 'package:PiliPlus/services/shutdown_timer_service.dart'
     show shutdownTimerService;
@@ -1215,6 +1216,51 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
       PopupMenuItem(
         onTap: introController.viewLater,
         child: const Text('稍后再看'),
+      ),
+      PopupMenuItem(
+        onTap: () async {
+          try {
+            final cover = videoDetailController.cover.value;
+            final bvid = videoDetailController.bvid;
+            final aid = videoDetailController.aid;
+            
+            // 获取标题和作者信息
+            String title = '';
+            String? author;
+            int? authorMid;
+            
+            if (videoDetailController.isUgc) {
+              final videoDetail = ugcIntroController.videoDetail.value;
+              title = videoDetail.title ?? '';
+              author = videoDetail.owner?.name;
+              authorMid = videoDetail.owner?.mid;
+            } else if (!videoDetailController.isFileSource) {
+              final pgcItem = pgcIntroController.pgcItem;
+              title = pgcItem.title ?? '';
+              author = pgcItem.upInfo?.uname;
+              authorMid = pgcItem.upInfo?.mid;
+            } else {
+              // 本地文件，使用默认值
+              title = '本地视频';
+            }
+            
+            await PinService.setPinnedItem(
+              PinItem(
+                type: PinType.video,
+                id: bvid,
+                aid: aid.toString(),
+                title: title,
+                cover: cover,
+                author: author,
+                authorMid: authorMid,
+              ),
+            );
+            SmartDialog.showToast('已 Pin');
+          } catch (e) {
+            SmartDialog.showToast('Pin 失败');
+          }
+        },
+        child: const Text('Pin'),
       ),
       if (videoDetailController.epId == null)
         PopupMenuItem(
