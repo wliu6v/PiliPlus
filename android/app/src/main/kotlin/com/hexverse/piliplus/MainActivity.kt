@@ -1,4 +1,4 @@
-package com.example.piliplus
+package com.hexverse.piliplus
 
 import android.content.Intent
 import android.content.res.Configuration
@@ -38,3 +38,4 @@ class MainActivity : AudioServiceActivity() {
         AndroidHelper.isPipMode = isInPictureInPictureMode
     }
 }
+
