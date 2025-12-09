@@ -23,6 +23,9 @@ mixin BaseLaterController
         CommonMultiSelectMixin<LaterItemModel>,
         DeleteItemMixin<LaterData, LaterItemModel> {
   ValueChanged<int>? updateCount;
+  
+  // 子类需要提供 baseCtr
+  LaterBaseController get baseCtr;
 
   @override
   void onRemove() {
@@ -45,42 +48,12 @@ mixin BaseLaterController
     );
   }
 
-  // single
-  void toViewDel(
+  // single delete - 子类需要实现
+  Future<void> toViewDel(
     BuildContext context,
     int index,
     int? aid,
-  ) {
-    showDialog(
-      context: context,
-      builder: (context) => AlertDialog(
-        title: const Text('提示'),
-        content: const Text('即将移除该视频，确定是否移除'),
-        actions: [
-          TextButton(
-            onPressed: Get.back,
-            child: Text(
-              '取消',
-              style: TextStyle(color: Theme.of(context).colorScheme.outline),
-            ),
-          ),
-          TextButton(
-            onPressed: () async {
-              Get.back();
-              final res = await UserHttp.toViewDel(aids: aid.toString());
-              if (res.isSuccess) {
-                loadingState
-                  ..value.data!.removeAt(index)
-                  ..refresh();
-                updateCount?.call(1);
-              }
-            },
-            child: const Text('确认移除'),
-          ),
-        ],
-      ),
-    );
-  }
+  );
 }
 
 class LaterController extends MultiSelectController<LaterData, LaterItemModel>
@@ -92,6 +65,7 @@ class LaterController extends MultiSelectController<LaterData, LaterItemModel>
 
   final RxBool asc = false.obs;
 
+  @override
   final LaterBaseController baseCtr = Get.put(LaterBaseController());
 
   @override
@@ -188,6 +162,70 @@ class LaterController extends MultiSelectController<LaterData, LaterItemModel>
   @override
   ValueChanged<int>? get updateCount =>
       (count) => baseCtr.counts[laterViewType.index] -= count;
+
+  // single
+  @override
+  Future<void> toViewDel(
+    BuildContext context,
+    int index,
+    int? aid,
+  ) async {
+    if (loadingState.value.data == null || index >= loadingState.value.data!.length) {
+      return;
+    }
+    
+    final item = loadingState.value.data![index];
+    
+    // 先移除UI
+    loadingState.value.data!.removeAt(index);
+    loadingState.refresh();
+    updateCount?.call(1);
+    
+    // 显示撤销按钮
+    baseCtr.showUndoButton(item, index);
+    
+    // 执行删除请求
+    final res = await UserHttp.toViewDel(aids: aid.toString());
+    
+    // 如果撤销按钮已经隐藏（用户已经撤销或超时），忽略删除结果
+    if (!baseCtr.showUndo.value) {
+      return;
+    }
+    
+    // 标记删除请求已完成
+    baseCtr.markDeleteRequestCompleted();
+    
+    if (!res.isSuccess) {
+      undoDelete(item, index, needReadd: false);
+      await res.toast();
+    }
+  }
+
+  // 撤销删除
+  Future<void> undoDelete(LaterItemModel item, int index, {bool needReadd = true}) async {
+    if (loadingState.value.data == null) return;
+    
+    // 如果删除请求已完成，需要重新添加
+    if (needReadd && baseCtr.isDeleteRequestCompleted) {
+      final res = await UserHttp.toViewLater(aid: item.aid);
+      if (!res.isSuccess) {
+        await res.toast();
+        return;
+      }
+    }
+    
+    // 恢复数据
+    if (index >= loadingState.value.data!.length) {
+      loadingState.value.data!.add(item);
+    } else {
+      loadingState.value.data!.insert(index, item);
+    }
+    loadingState.refresh();
+    updateCount?.call(-1);
+    
+    // 隐藏撤销按钮
+    baseCtr.hideUndoButton();
+  }
 
   @override
   Future<void> onReload() {
