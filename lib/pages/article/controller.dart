@@ -9,12 +9,15 @@ import 'package:PiliPlus/models/dynamics/result.dart';
 import 'package:PiliPlus/models/model_avatar.dart';
 import 'package:PiliPlus/models_new/article/article_view/data.dart';
 import 'package:PiliPlus/pages/common/dyn/common_dyn_controller.dart';
+import 'package:PiliPlus/services/article_reading_position_service.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/app_scheme.dart';
 import 'package:PiliPlus/utils/extension/get_ext.dart';
 import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:PiliPlus/utils/url_utils.dart';
+import 'package:easy_debounce/easy_throttle.dart';
+import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 
@@ -40,6 +43,10 @@ class ArticleController extends CommonDynController {
   DynamicItemModel? opusData; // 标题信息从summary获取, 动态没有favorite
   ArticleViewData? articleData;
   final Rx<ModuleStatModel?> stats = Rx<ModuleStatModel?>(null);
+  
+  // 阅读位置相关
+  bool _hasRestoredPosition = false;
+  String get _articleKey => '$type:$id';
 
   List<ArticleContentModel>? get opus =>
       opusData?.modules.moduleContent ?? articleData?.opus?.content;
@@ -177,8 +184,41 @@ class ArticleController extends CommonDynController {
       if (Accounts.heartbeat.isLogin && !Pref.historyPause) {
         VideoHttp.historyReport(aid: commentId, type: 5);
       }
+      // 恢复阅读位置（不等待图片加载）
+      _restoreReadingPosition();
     }
   }
+  
+  /// 恢复阅读位置
+  void _restoreReadingPosition() {
+    if (_hasRestoredPosition) return;
+    _hasRestoredPosition = true;
+    
+    final savedPosition = ArticleReadingPositionService.getReadingPosition(_articleKey);
+    if (savedPosition != null && savedPosition > 0 && articleScrollController != null) {
+      // 延迟一帧后恢复位置，确保内容已渲染
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (articleScrollController?.hasClients == true) {
+          articleScrollController?.jumpTo(savedPosition);
+        }
+      });
+    }
+  }
+  
+  /// 保存阅读位置（使用防抖）
+  void saveReadingPosition(double position) {
+    if (position <= 0) return;
+    EasyThrottle.throttle(
+      'saveArticlePosition_$_articleKey',
+      const Duration(milliseconds: 1000),
+      () {
+        ArticleReadingPositionService.saveReadingPosition(_articleKey, position);
+      },
+    );
+  }
+  
+  // scrollController 在 view 中设置，用于恢复阅读位置
+  ScrollController? articleScrollController;
 
   Future<void> onFav() async {
     final favorite = stats.value?.favorite;

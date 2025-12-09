@@ -54,12 +54,22 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    // 让 controller 拿到本页 scrollController, 用于恢复上次阅读位置
+    controller.articleScrollController = scrollController;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (scrollController.hasClients) {
         controller.showTitle.value =
             scrollController.positions.last.pixels >= 45;
       }
     });
+  }
+
+  @override
+  void listener() {
+    super.listener();
+    if (scrollController.hasClients) {
+      controller.saveReadingPosition(scrollController.position.pixels);
+    }
   }
 
   @override
