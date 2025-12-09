@@ -1,4 +1,4 @@
-package com.example.piliplus
+package com.hexverse.piliplus
 
 import android.app.PendingIntent
 import android.app.PictureInPictureParams
@@ -269,3 +269,4 @@ class MainActivity : AudioServiceActivity() {
         ).invokeMethod("onPipChanged", isInPictureInPictureMode)
     }
 }
+
