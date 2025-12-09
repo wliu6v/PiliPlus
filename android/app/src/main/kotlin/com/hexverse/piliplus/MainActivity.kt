@@ -1,10 +1,11 @@
-package com.example.piliplus
+package com.hexverse.piliplus
 
 import android.content.Intent
 import android.content.res.Configuration
 import android.os.Build
 import android.os.Bundle
 import android.view.WindowManager.LayoutParams
+import com.example.piliplus.AndroidHelper
 import com.ryanheise.audioservice.AudioServiceActivity
 
 class MainActivity : AudioServiceActivity() {

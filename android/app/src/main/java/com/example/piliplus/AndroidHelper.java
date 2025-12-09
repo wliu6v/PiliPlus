@@ -32,6 +32,7 @@ import androidx.annotation.NonNull;
 import androidx.annotation.RequiresApi;
 
 import com.github.dart_lang.jni_flutter.JniFlutterPlugin;
+import com.hexverse.piliplus.R;
 
 import java.lang.reflect.Field;
 import java.lang.reflect.Method;
