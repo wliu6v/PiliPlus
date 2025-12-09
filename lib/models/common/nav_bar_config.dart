@@ -23,7 +23,7 @@ enum NavigationBarType implements EnumWithLabel {
     '稍后再看',
     Icon(Icons.watch_later_outlined, size: 21),
     Icon(Icons.watch_later, size: 21),
-    LaterPage(),
+    LaterPage(isTab: true),
   ),
   mine(
     '我的',

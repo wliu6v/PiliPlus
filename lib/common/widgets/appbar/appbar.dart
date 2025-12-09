@@ -23,6 +23,7 @@ class MultiSelectAppBarWidget extends StatelessWidget
       final style = TextButton.styleFrom(visualDensity: VisualDensity.compact);
       final colorScheme = ColorScheme.of(context);
       return AppBar(
+        primary: child.primary,
         bottom: child.bottom,
         leading: IconButton(
           tooltip: '取消',
