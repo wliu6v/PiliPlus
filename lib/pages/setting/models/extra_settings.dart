@@ -501,6 +501,13 @@ List<SettingsModel> get extraSettings => [
     onTap: _showFavDialog,
     defaultVal: false,
   ),
+  const SwitchModel(
+    title: '长按直接添加到稍后再看',
+    subtitle: '开启后长按视频卡片直接添加到稍后再看，关闭则显示弹框',
+    leading: Icon(Icons.watch_later_outlined),
+    setKey: SettingBoxKey.longPressToWatchLater,
+    defaultVal: false,
+  ),
   SwitchModel(
     title: '评论区搜索关键词',
     subtitle: '展示评论区搜索关键词',

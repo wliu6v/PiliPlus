@@ -4,6 +4,7 @@ import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/http/user.dart';
 import 'package:PiliPlus/utils/image_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -14,6 +15,12 @@ void imageSaveDialog({
   dynamic aid,
   String? bvid,
 }) {
+  if (Pref.longPressToWatchLater && (aid != null || bvid != null)) {
+    // UserHttp.toViewLater already shows success/error toasts.
+    UserHttp.toViewLater(aid: aid, bvid: bvid);
+    return;
+  }
+
   final double imgWidth = MediaQuery.sizeOf(Get.context!).shortestSide - 16;
   SmartDialog.show(
     animationType: SmartAnimationType.centerScale_otherSlide,
@@ -22,7 +29,7 @@ void imageSaveDialog({
       final theme = Theme.of(context);
       return Container(
         width: imgWidth,
-        margin: const .symmetric(horizontal: Style.safeSpace),
+        margin: const EdgeInsets.symmetric(horizontal: Style.safeSpace),
         decoration: BoxDecoration(
           color: theme.colorScheme.surface,
           borderRadius: Style.mdRadius,
@@ -40,7 +47,9 @@ void imageSaveDialog({
                     quality: 100,
                     width: imgWidth,
                     height: imgWidth / Style.aspectRatio16x9,
-                    borderRadius: const .vertical(top: Style.imgRadius),
+                    borderRadius: const BorderRadius.vertical(
+                      top: Style.imgRadius,
+                    ),
                   ),
                 ),
                 Positioned(
@@ -51,7 +60,7 @@ void imageSaveDialog({
                   child: IconButton(
                     tooltip: '关闭',
                     style: IconButton.styleFrom(
-                      padding: .zero,
+                      padding: EdgeInsets.zero,
                       backgroundColor: Colors.black.withValues(alpha: 0.3),
                     ),
                     onPressed: SmartDialog.dismiss,

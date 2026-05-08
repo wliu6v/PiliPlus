@@ -6,6 +6,8 @@ import 'package:PiliPlus/common/widgets/flutter/list_tile.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
 import 'package:PiliPlus/http/loading_state.dart';
+import 'package:PiliPlus/http/search.dart';
+import 'package:PiliPlus/models/common/image_type.dart';
 import 'package:PiliPlus/models/common/nav_bar_config.dart';
 import 'package:PiliPlus/models_new/fav/fav_folder/list.dart';
 import 'package:PiliPlus/pages/common/common_page.dart';
@@ -14,10 +16,12 @@ import 'package:PiliPlus/pages/login/controller.dart';
 import 'package:PiliPlus/pages/main/controller.dart';
 import 'package:PiliPlus/pages/mine/controller.dart';
 import 'package:PiliPlus/pages/mine/widgets/item.dart';
+import 'package:PiliPlus/services/pin_service.dart';
 import 'package:PiliPlus/utils/bili_utils.dart';
 import 'package:PiliPlus/utils/extension/get_ext.dart';
 import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
+import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/platform_utils.dart';
 import 'package:PiliPlus/utils/storage.dart';
 import 'package:PiliPlus/utils/utils.dart';
@@ -495,6 +499,7 @@ class _MediaPageState extends CommonPageState<MinePage>
           ),
         ),
         _buildFavBody(theme, secondary, controller.loadingState.value),
+        _buildPinArea(theme, secondary),
       ],
     );
   }
@@ -568,5 +573,145 @@ class _MediaPageState extends CommonPageState<MinePage>
         ),
       ),
     };
+  }
+
+  Widget _buildPinArea(ThemeData theme, Color secondary) {
+    // 使用 Obx 监听 Pin 状态变化
+    return Obx(
+      () {
+        // 监听 Pin 状态变化
+        PinNotifier.pinChanged.value;
+        final pinnedItem = PinService.getPinnedItem();
+        if (pinnedItem == null) {
+          return const SizedBox.shrink();
+        }
+
+        return Column(
+          children: [
+            Divider(
+              height: 1,
+              color: theme.dividerColor.withValues(alpha: 0.1),
+            ),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 0),
+              child: Row(
+                children: [
+                  Text(
+                    'Pin',
+                    style: TextStyle(
+                      fontSize: theme.textTheme.titleMedium!.fontSize,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                  const Spacer(),
+                  IconButton(
+                    tooltip: '取消 Pin',
+                    icon: const Icon(Icons.close, size: 18),
+                    onPressed: () async {
+                      await PinService.unpin();
+                      // Obx 会自动触发重建
+                    },
+                    padding: EdgeInsets.zero,
+                    constraints: const BoxConstraints(),
+                  ),
+                ],
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.only(left: 20, right: 20, bottom: 0),
+              child: GestureDetector(
+                onTap: () async {
+                  if (pinnedItem.type == PinType.video) {
+                    // 视频
+                    String bvid = pinnedItem.id;
+                    int? aid = pinnedItem.aid != null
+                        ? int.tryParse(pinnedItem.aid!)
+                        : null;
+                    int? cid = await SearchHttp.ab2c(
+                      aid: aid,
+                      bvid: bvid,
+                    );
+                    if (cid != null) {
+                      PageUtils.toVideoPage(
+                        aid: aid,
+                        bvid: bvid,
+                        cid: cid,
+                        cover: pinnedItem.cover,
+                        title: pinnedItem.title,
+                      );
+                    }
+                  } else {
+                    // 专栏
+                    // 判断是 cv 类型还是 opus 类型
+                    final articleId = pinnedItem.id;
+                    final isCvType = articleId.startsWith('cv');
+                    PageUtils.toDupNamed(
+                      '/articlePage',
+                      parameters: {
+                        'id': isCvType ? articleId.substring(2) : articleId,
+                        'type': isCvType ? 'read' : 'opus',
+                      },
+                    );
+                  }
+                },
+                child: Container(
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  padding: const EdgeInsets.all(12),
+                  child: Row(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(8),
+                        child: NetworkImgLayer(
+                          src: pinnedItem.cover,
+                          width: 80,
+                          height: 60,
+                          fit: BoxFit.cover,
+                          type: ImageType.def,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              pinnedItem.title,
+                              style: theme.textTheme.bodyMedium,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            if (pinnedItem.author != null) ...[
+                              const SizedBox(height: 4),
+                              Text(
+                                pinnedItem.author!,
+                                style: theme.textTheme.bodySmall?.copyWith(
+                                  color: secondary,
+                                ),
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ],
+                          ],
+                        ),
+                      ),
+                      Icon(
+                        pinnedItem.type == PinType.video
+                            ? Icons.play_circle_outline
+                            : Icons.article_outlined,
+                        color: secondary,
+                        size: 24,
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+          ],
+        );
+      },
+    );
   }
 }

@@ -24,6 +24,7 @@ import 'package:PiliPlus/utils/num_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
 import 'package:PiliPlus/utils/share_utils.dart';
 import 'package:PiliPlus/utils/utils.dart';
+import 'package:PiliPlus/services/pin_service.dart';
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
@@ -53,12 +54,22 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
+    // 让 controller 拿到本页 scrollController, 用于恢复上次阅读位置
+    controller.articleScrollController = scrollController;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       if (scrollController.hasClients) {
         controller.showTitle.value =
             scrollController.positions.last.pixels >= 45;
       }
     });
+  }
+
+  @override
+  void listener() {
+    super.listener();
+    if (scrollController.hasClients) {
+      controller.saveReadingPosition(scrollController.position.pixels);
+    }
   }
 
   @override
@@ -447,6 +458,46 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
                 Icon(Icons.copy_rounded, size: 19),
                 SizedBox(width: 10),
                 Text('复制链接'),
+              ],
+            ),
+          ),
+          PopupMenuItem(
+            onTap: () async {
+              try {
+                final summary = controller.summary;
+                // 确保获取了文章信息
+                if (summary.title == null || summary.cover == null) {
+                  if (!await controller.getArticleInfo(true)) {
+                    SmartDialog.showToast('获取文章信息失败');
+                    return;
+                  }
+                }
+                
+                final cvId = controller.type == 'read' 
+                    ? 'cv${controller.id}' 
+                    : controller.id;
+                
+                await PinService.setPinnedItem(
+                  PinItem(
+                    type: PinType.article,
+                    id: cvId,
+                    title: summary.title ?? '',
+                    cover: summary.cover ?? '',
+                    author: summary.author?.name,
+                    authorMid: summary.author?.mid,
+                  ),
+                );
+                SmartDialog.showToast('已 Pin');
+              } catch (e) {
+                SmartDialog.showToast('Pin 失败');
+              }
+            },
+            child: const Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Icon(Icons.push_pin, size: 19),
+                SizedBox(width: 10),
+                Text('Pin'),
               ],
             ),
           ),
