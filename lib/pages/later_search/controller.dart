@@ -7,7 +7,6 @@ import 'package:PiliPlus/pages/common/search/common_search_controller.dart';
 import 'package:PiliPlus/pages/later/base_controller.dart';
 import 'package:PiliPlus/pages/later/controller.dart' show BaseLaterController;
 import 'package:flutter/material.dart';
-import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
 
 class LaterSearchController
@@ -47,11 +46,12 @@ class LaterSearchController
     }
     
     final res = await UserHttp.toViewDel(aids: aid.toString());
-    if (res['status']) {
+    if (res.isSuccess) {
       loadingState.value.data!.removeAt(index);
       loadingState.refresh();
       updateCount?.call(1);
+    } else {
+      await res.toast();
     }
-    SmartDialog.showToast(res['msg']);
   }
 }
