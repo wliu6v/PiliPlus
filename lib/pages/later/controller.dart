@@ -3,16 +3,22 @@ import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/user.dart';
 import 'package:PiliPlus/models/common/later_view_type.dart';
 import 'package:PiliPlus/models/common/video/source_type.dart';
+import 'package:PiliPlus/models/common/video/video_quality.dart';
 import 'package:PiliPlus/models_new/later/data.dart';
 import 'package:PiliPlus/models_new/later/list.dart';
+import 'package:PiliPlus/models_new/video/video_detail/data.dart';
+import 'package:PiliPlus/models_new/video/video_detail/page.dart';
 import 'package:PiliPlus/pages/common/common_list_controller.dart'
     show CommonListController;
 import 'package:PiliPlus/pages/common/multi_select/base.dart';
 import 'package:PiliPlus/pages/common/multi_select/multi_select_controller.dart';
 import 'package:PiliPlus/pages/later/base_controller.dart';
+import 'package:PiliPlus/services/download/download_service.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/extension/scroll_controller_ext.dart';
+import 'package:PiliPlus/utils/id_utils.dart';
 import 'package:PiliPlus/utils/page_utils.dart';
+import 'package:PiliPlus/utils/storage_pref.dart';
 import 'package:material_ui/material_ui.dart';
 import 'package:flutter_smart_dialog/flutter_smart_dialog.dart';
 import 'package:get/get.dart';
@@ -23,7 +29,7 @@ mixin BaseLaterController
         CommonMultiSelectMixin<LaterItemModel>,
         DeleteItemMixin<LaterData, LaterItemModel> {
   ValueChanged<int>? updateCount;
-  
+
   // 子类需要提供 baseCtr
   LaterBaseController get baseCtr;
 
@@ -49,11 +55,78 @@ mixin BaseLaterController
   }
 
   // single delete - 子类需要实现
-  Future<void> toViewDel(
-    BuildContext context,
-    int index,
-    int? aid,
-  );
+  Future<void> toViewDel(BuildContext context, int index, int? aid);
+
+  void onDownloadSelected() {
+    final selected = allChecked.toList();
+    if (selected.isEmpty) {
+      return;
+    }
+
+    final downloadService = Get.find<DownloadService>();
+    final quality = _defaultDownloadQuality;
+    int count = 0;
+    int skipped = 0;
+
+    for (final item in selected) {
+      final cid = item.cid;
+      final aid =
+          item.aid ?? (item.bvid == null ? null : IdUtils.bv2av(item.bvid!));
+      final bvid =
+          item.bvid ?? (item.aid == null ? null : IdUtils.av2bv(item.aid!));
+      final isUnsupported = item.isPgc == true || item.isPugv == true;
+      final isDownloaded =
+          cid != null &&
+          (downloadService.downloadList.any((e) => e.cid == cid) ||
+              downloadService.waitDownloadQueue.any((e) => e.cid == cid));
+      if (cid == null ||
+          aid == null ||
+          bvid == null ||
+          isUnsupported ||
+          isDownloaded) {
+        skipped++;
+        continue;
+      }
+
+      downloadService.downloadVideo(
+        Part(
+          cid: cid,
+          page: 1,
+          part: item.title ?? '',
+          duration: item.duration,
+          dimension: item.dimension,
+        ),
+        VideoDetailData(
+          aid: aid,
+          bvid: bvid,
+          cid: cid,
+          title: item.title ?? '',
+          pic: item.pic ?? '',
+          duration: item.duration,
+          owner: item.owner,
+          dimension: item.dimension,
+        ),
+        null,
+        quality,
+      );
+      count++;
+    }
+
+    handleSelect();
+    if (skipped == 0) {
+      SmartDialog.showToast('已添加$count个缓存任务');
+    } else {
+      SmartDialog.showToast('已添加$count个缓存任务，跳过$skipped个');
+    }
+  }
+
+  VideoQuality get _defaultDownloadQuality {
+    try {
+      return VideoQuality.fromCode(Pref.defaultVideoQa);
+    } catch (_) {
+      return VideoQuality.values.first;
+    }
+  }
 }
 
 class LaterController extends MultiSelectController<LaterData, LaterItemModel>
@@ -165,36 +238,33 @@ class LaterController extends MultiSelectController<LaterData, LaterItemModel>
 
   // single
   @override
-  Future<void> toViewDel(
-    BuildContext context,
-    int index,
-    int? aid,
-  ) async {
-    if (loadingState.value.data == null || index >= loadingState.value.data!.length) {
+  Future<void> toViewDel(BuildContext context, int index, int? aid) async {
+    if (loadingState.value.data == null ||
+        index >= loadingState.value.data!.length) {
       return;
     }
-    
+
     final item = loadingState.value.data![index];
-    
+
     // 先移除UI
     loadingState.value.data!.removeAt(index);
     loadingState.refresh();
     updateCount?.call(1);
-    
+
     // 显示撤销按钮
     baseCtr.showUndoButton(item, index);
-    
+
     // 执行删除请求
     final res = await UserHttp.toViewDel(aids: aid.toString());
-    
+
     // 如果撤销按钮已经隐藏（用户已经撤销或超时），忽略删除结果
     if (!baseCtr.showUndo.value) {
       return;
     }
-    
+
     // 标记删除请求已完成
     baseCtr.markDeleteRequestCompleted();
-    
+
     if (!res.isSuccess) {
       undoDelete(item, index, needReadd: false);
       await res.toast();
@@ -202,9 +272,13 @@ class LaterController extends MultiSelectController<LaterData, LaterItemModel>
   }
 
   // 撤销删除
-  Future<void> undoDelete(LaterItemModel item, int index, {bool needReadd = true}) async {
+  Future<void> undoDelete(
+    LaterItemModel item,
+    int index, {
+    bool needReadd = true,
+  }) async {
     if (loadingState.value.data == null) return;
-    
+
     // 如果删除请求已完成，需要重新添加
     if (needReadd && baseCtr.isDeleteRequestCompleted) {
       final res = await UserHttp.toViewLater(aid: item.aid);
@@ -213,7 +287,7 @@ class LaterController extends MultiSelectController<LaterData, LaterItemModel>
         return;
       }
     }
-    
+
     // 恢复数据
     if (index >= loadingState.value.data!.length) {
       loadingState.value.data!.add(item);
@@ -222,7 +296,7 @@ class LaterController extends MultiSelectController<LaterData, LaterItemModel>
     }
     loadingState.refresh();
     updateCount?.call(-1);
-    
+
     // 隐藏撤销按钮
     baseCtr.hideUndoButton();
   }

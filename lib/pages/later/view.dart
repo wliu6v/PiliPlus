@@ -120,16 +120,9 @@ class _LaterPageState extends State<LaterPage> {
         TextButton(
           style: btnStyle,
           onPressed: () {
-            final ctr = currCtr();
-            RequestUtils.onCopyOrMove<LaterItemModel>(
-              context: context,
-              isCopy: false,
-              ctr: ctr,
-              mediaId: null,
-              mid: ctr.mid,
-            );
+            currCtr().onDownloadSelected();
           },
-          child: Text('移动', style: textStyle),
+          child: Text('下载', style: textStyle),
         ),
       ],
       child: AppBar(
