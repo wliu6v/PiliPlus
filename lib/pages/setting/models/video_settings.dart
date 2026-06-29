@@ -5,9 +5,15 @@ import 'package:PiliPlus/models/common/video/cdn_type.dart';
 import 'package:PiliPlus/models/common/video/live_quality.dart';
 import 'package:PiliPlus/models/common/video/video_decode_type.dart';
 import 'package:PiliPlus/models/common/video/video_quality.dart';
+import 'package:PiliPlus/models/common/video/video_type.dart';
+import 'package:PiliPlus/models/video/play/url.dart';
+import 'package:PiliPlus/http/loading_state.dart';
+import 'package:PiliPlus/http/video.dart';
 import 'package:PiliPlus/pages/setting/models/model.dart';
+import 'package:PiliPlus/pages/setting/widgets/cdn_probe_dialog.dart';
 import 'package:PiliPlus/pages/setting/widgets/ordered_multi_select_dialog.dart';
 import 'package:PiliPlus/pages/setting/widgets/select_dialog.dart';
+import 'package:PiliPlus/utils/id_utils.dart';
 import 'package:PiliPlus/plugin/pl_player/models/audio_output_type.dart';
 import 'package:PiliPlus/plugin/pl_player/models/hwdec_type.dart';
 import 'package:PiliPlus/utils/filtering_text.dart';
@@ -61,6 +67,12 @@ List<SettingsModel> get videoSettings => [
     getSubtitle: () =>
         '当前使用：${VideoUtils.cdnService.desc}，部分 CDN 可能失效，如无法播放请尝试切换',
     onTap: _showCDNDialog,
+  ),
+  const NormalModel(
+    title: 'CDN 解析测试',
+    leading: Icon(MdiIcons.cloudSearchOutline),
+    subtitle: '输入 BV 号或视频链接，测试各 CDN 能否解析音/视频流及其延迟',
+    onTap: _showCDNDiagnosticDialog,
   ),
   NormalModel(
     title: '直播 CDN 设置',
@@ -184,6 +196,123 @@ Future<void> _showCDNDialog(BuildContext context, VoidCallback setState) async {
     await GStorage.setting.put(SettingBoxKey.CDNService, res.name);
     setState();
   }
+}
+
+Future<void> _showCDNDiagnosticDialog(
+  BuildContext context,
+  VoidCallback setState,
+) async {
+  String input = '';
+  // 默认测试音频（音频更易出现解析失败）
+  bool isAudio = true;
+  final res = await showDialog<bool>(
+    context: context,
+    builder: (context) {
+      final theme = Theme.of(context);
+      return StatefulBuilder(
+        builder: (context, setLocalState) => AlertDialog(
+          title: const Text('CDN 解析测试'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              TextFormField(
+                autofocus: true,
+                onChanged: (value) => input = value,
+                decoration: const InputDecoration(
+                  hintText: 'BV 号 / av 号 / 视频链接',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 8),
+              SegmentedButton<bool>(
+                showSelectedIcon: false,
+                segments: const [
+                  ButtonSegment(value: true, label: Text('音频')),
+                  ButtonSegment(value: false, label: Text('视频')),
+                ],
+                selected: {isAudio},
+                onSelectionChanged: (value) =>
+                    setLocalState(() => isAudio = value.first),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: Get.back,
+              child: Text(
+                '取消',
+                style: TextStyle(color: theme.colorScheme.outline),
+              ),
+            ),
+            TextButton(
+              onPressed: () => Get.back(result: true),
+              child: const Text('开始测试'),
+            ),
+          ],
+        ),
+      );
+    },
+  );
+  if (res != true) return;
+  final keyword = input.trim();
+  if (keyword.isEmpty) {
+    SmartDialog.showToast('请输入 BV 号或视频链接');
+    return;
+  }
+  if (!context.mounted) return;
+
+  final testAudio = isAudio;
+  final pick = await showDialog<CdnProbePick>(
+    context: context,
+    builder: (context) => CdnProbeDialog(
+      isAudio: testAudio,
+      current: VideoUtils.cdnService,
+      title: testAudio ? '音频 CDN 解析测试' : '视频 CDN 解析测试',
+      itemLoader: () => _resolveSampleItem(keyword, testAudio),
+    ),
+  );
+  if (pick != null) {
+    VideoUtils.cdnService = pick.cdn;
+    await GStorage.setting.put(SettingBoxKey.CDNService, pick.cdn.name);
+    SmartDialog.showToast('已将默认 CDN 设为 ${pick.cdn.desc}');
+    setState();
+  }
+}
+
+/// 根据用户输入的 BV/av/链接解析出一条音频或视频流，供 CDN 探测使用
+Future<BaseItem> _resolveSampleItem(String keyword, bool isAudio) async {
+  final match = IdUtils.matchAvorBv(input: keyword);
+  String? bvid = match.bv;
+  if (bvid == null && match.av != null) {
+    bvid = IdUtils.av2bv(match.av!);
+  }
+  bvid ??= IdUtils.bvRegexExact.hasMatch(keyword) ? keyword : null;
+  if (bvid == null) {
+    throw '无法识别 BV 号 / av 号';
+  }
+
+  final introRes = await VideoHttp.videoIntro(bvid: bvid);
+  final cid = introRes.dataOrNull?.cid;
+  if (cid == null) {
+    throw introRes is Error ? introRes.toString() : '无法获取视频信息';
+  }
+
+  final urlRes = await VideoHttp.videoUrl(
+    cid: cid,
+    bvid: bvid,
+    tryLook: Pref.p1080,
+    videoType: VideoType.ugc,
+  );
+  final dash = urlRes.dataOrNull?.dash;
+  if (dash == null) {
+    throw urlRes is Error ? urlRes.toString() : '该视频不支持 DASH 流';
+  }
+  final BaseItem? item = isAudio ? dash.audio?.first : dash.video?.first;
+  if (item == null) {
+    throw isAudio ? '该视频无独立音频流' : '该视频无可用视频流';
+  }
+  return item;
 }
 
 Future<void> _showLiveCDNDialog(
