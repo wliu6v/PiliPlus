@@ -26,6 +26,7 @@ import 'package:PiliPlus/pages/common/common_intro_controller.dart';
 import 'package:PiliPlus/pages/danmaku/danmaku_model.dart';
 import 'package:PiliPlus/pages/setting/models/play_settings.dart'
     show showPlayerVolumeDialog;
+import 'package:PiliPlus/pages/setting/widgets/cdn_probe_dialog.dart';
 import 'package:PiliPlus/pages/setting/widgets/popup_item.dart';
 import 'package:PiliPlus/pages/setting/widgets/select_dialog.dart';
 import 'package:PiliPlus/pages/video/controller.dart';
@@ -636,6 +637,17 @@ class HeaderControlState extends State<HeaderControl>
                         style: subTitleStyle,
                       ),
                     ),
+                  if (videoInfo.dash?.audio?.isNotEmpty == true)
+                    ListTile(
+                      dense: true,
+                      onTap: () => _testAudioCdn(context),
+                      leading: const Icon(MdiIcons.musicNotePlus, size: 20),
+                      title: const Text('音频 CDN 测试', style: titleStyle),
+                      subtitle: const Text(
+                        '无声音时，遍历各 CDN 重新加载音频',
+                        style: subTitleStyle,
+                      ),
+                    ),
                   ListTile(
                     dense: true,
                     onTap: () {
@@ -1011,6 +1023,33 @@ class HeaderControlState extends State<HeaderControl>
   }
 
   /// 选择音质
+  Future<void> _testAudioCdn(BuildContext context) async {
+    final audioList = videoInfo.dash?.audio;
+    if (audioList == null || audioList.isEmpty) {
+      SmartDialog.showToast('当前视频无独立音频流');
+      return;
+    }
+    final curQa = videoDetailCtr.currentAudioQa?.code;
+    final AudioItem audioItem =
+        audioList.firstWhereOrNull((e) => e.id == curQa) ?? audioList.first;
+    Get.back();
+    final pick = await showDialog<CdnProbePick>(
+      context: context,
+      builder: (context) => CdnProbeDialog(
+        itemLoader: () => audioItem,
+        isAudio: true,
+        current: VideoUtils.cdnService,
+        title: '音频 CDN 测试',
+      ),
+    );
+    if (pick != null) {
+      videoDetailCtr
+        ..audioUrl = pick.url
+        ..playerInit();
+      SmartDialog.showToast('已切换音频 CDN：${pick.cdn.desc}');
+    }
+  }
+
   void showSetAudioQa() {
     final AudioQuality currentAudioQa = videoDetailCtr.currentAudioQa!;
     final List<AudioItem> audio = videoInfo.dash!.audio!;
