@@ -52,25 +52,28 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
     'id': controller.id,
   };
 
-  @override
-  void didChangeDependencies() {
-    super.didChangeDependencies();
-    // 让 controller 拿到本页 scrollController, 用于恢复上次阅读位置
-    controller.articleScrollController = scrollController;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (scrollController.hasClients) {
-        controller.showTitle.value =
-            scrollController.positions.last.pixels >= 45;
-      }
-    });
-  }
+  // 文章内容滚动控制器, 用于恢复上次阅读位置
+  late final ScrollController scrollController = ScrollController()
+    ..addListener(_onScroll);
 
-  @override
-  void listener() {
-    super.listener();
+  void _onScroll() {
     if (scrollController.hasClients) {
       controller.saveReadingPosition(scrollController.position.pixels);
     }
+  }
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    controller.articleScrollController = scrollController;
+  }
+
+  @override
+  void dispose() {
+    scrollController
+      ..removeListener(_onScroll)
+      ..dispose();
+    super.dispose();
   }
 
   @override
@@ -97,6 +100,7 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
       return Padding(
         padding: EdgeInsets.symmetric(horizontal: padding),
         child: CustomScrollView(
+          controller: scrollController,
           physics: const AlwaysScrollableScrollPhysics(),
           slivers: [
             _buildContent(
@@ -124,6 +128,7 @@ class _ArticlePageState extends CommonDynPageState<ArticlePage> {
         Expanded(
           flex: flex,
           child: CustomScrollView(
+            controller: scrollController,
             physics: const AlwaysScrollableScrollPhysics(),
             slivers: [
               SliverPadding(
