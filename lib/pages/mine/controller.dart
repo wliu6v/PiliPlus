@@ -1,14 +1,20 @@
+import 'dart:async';
+
 import 'package:PiliPlus/common/widgets/custom_icon.dart';
 import 'package:PiliPlus/http/fav.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/user.dart';
 import 'package:PiliPlus/models/common/account_type.dart';
+import 'package:PiliPlus/models/common/mine_display_type.dart';
 import 'package:PiliPlus/models/common/theme/theme_type.dart';
 import 'package:PiliPlus/models/user/info.dart';
 import 'package:PiliPlus/models/user/stat.dart';
+import 'package:PiliPlus/models_new/download/bili_download_entry_info.dart';
 import 'package:PiliPlus/models_new/fav/fav_folder/data.dart';
+import 'package:PiliPlus/models_new/history/data.dart';
 import 'package:PiliPlus/pages/common/common_data_controller.dart';
 import 'package:PiliPlus/services/account_service.dart';
+import 'package:PiliPlus/services/download/download_service.dart';
 import 'package:PiliPlus/utils/accounts.dart';
 import 'package:PiliPlus/utils/accounts/account.dart';
 import 'package:PiliPlus/utils/extension/scroll_controller_ext.dart';
@@ -28,6 +34,14 @@ class MineController extends CommonDataController<FavFolderData, FavFolderData>
 
   int? favFolderCount;
 
+  final Rx<MineDisplayType> displayType = Pref.mineDisplayType.obs;
+  final Rx<LoadingState<HistoryData>> historyLoadingState =
+      LoadingState<HistoryData>.loading().obs;
+  final RxList<BiliDownloadEntryInfo> downloadList =
+      <BiliDownloadEntryInfo>[].obs;
+
+  DownloadService get _downloadService => Get.find<DownloadService>();
+
   // 用户信息 头像、昵称、lv
   final Rx<UserInfoData> userInfo = UserInfoData().obs;
   // 用户状态 动态、关注、粉丝
@@ -41,7 +55,7 @@ class MineController extends CommonDataController<FavFolderData, FavFolderData>
   static RxBool anonymity =
       (Accounts.account.isNotEmpty && !Accounts.heartbeat.isLogin).obs;
 
-  late final list = <({IconData icon, String title, VoidCallback onTap})>[
+  List<({IconData icon, String title, VoidCallback onTap})> get list => [
     (
       icon: CustomIcons.folderDownloadOutline,
       title: '离线缓存',
@@ -74,17 +88,30 @@ class MineController extends CommonDataController<FavFolderData, FavFolderData>
         }
       },
     ),
+    if (displayType.value != MineDisplayType.favorite)
+      (
+        icon: CustomIcons.star_favorite_line,
+        title: '我的收藏',
+        onTap: () {
+          if (isLogin) {
+            Get.toNamed('/fav');
+          }
+        },
+      ),
   ];
 
   @override
   void onInit() {
     super.onInit();
+    if (Get.isRegistered<DownloadService>()) {
+      _downloadService.flagNotifier.add(_syncDownloads);
+    }
     UserInfoData? userInfoCache = Pref.userInfoCache;
     if (userInfoCache != null) {
       userInfo.value = userInfoCache;
-      queryData();
       queryUserInfo();
     }
+    unawaited(refreshDisplayedSection());
   }
 
   bool get isLogin {
@@ -144,6 +171,55 @@ class MineController extends CommonDataController<FavFolderData, FavFolderData>
       ps: 20,
       mid: Accounts.main.mid,
     );
+  }
+
+  void setDisplayType(MineDisplayType value) {
+    displayType.value = value;
+    unawaited(refreshDisplayedSection());
+  }
+
+  Future<void> refreshDisplayedSection() {
+    return switch (displayType.value) {
+      MineDisplayType.none => Future.value(),
+      MineDisplayType.favorite =>
+        accountService.isLogin.value ? super.onRefresh() : Future.value(),
+      MineDisplayType.history => _queryHistory(),
+      MineDisplayType.download => _refreshDownloads(),
+    };
+  }
+
+  Future<void> _queryHistory() async {
+    if (!accountService.isLogin.value) {
+      historyLoadingState.value = Success(HistoryData());
+      return;
+    }
+    historyLoadingState.value = LoadingState<HistoryData>.loading();
+    final res = await UserHttp.historyList(
+      type: 'all',
+      account: Accounts.history,
+    );
+    if (res case Success(:final response)) {
+      response.list?.sort(
+        (a, b) => (b.viewAt ?? 0).compareTo(a.viewAt ?? 0),
+      );
+    }
+    historyLoadingState.value = res;
+  }
+
+  Future<void> _refreshDownloads() async {
+    if (!Get.isRegistered<DownloadService>()) {
+      downloadList.clear();
+      return;
+    }
+    await _downloadService.waitForInitialization;
+    _syncDownloads();
+  }
+
+  void _syncDownloads() {
+    downloadList.value = _downloadService.downloadList.toList()
+      ..sort(
+        (a, b) => b.timeUpdateStamp.compareTo(a.timeUpdateStamp),
+      );
   }
 
   static void onChangeAnonymity() {
@@ -285,11 +361,10 @@ class MineController extends CommonDataController<FavFolderData, FavFolderData>
 
   @override
   Future<void> onRefresh({bool isManual = true}) {
-    if (!accountService.isLogin.value) {
-      return Future.syncValue(null);
+    if (accountService.isLogin.value) {
+      unawaited(queryUserInfo());
     }
-    queryUserInfo();
-    return super.onRefresh().whenComplete(() {
+    return refreshDisplayedSection().whenComplete(() {
       if (isManual) {
         scrollController.jumpToTop();
       }
@@ -304,6 +379,18 @@ class MineController extends CommonDataController<FavFolderData, FavFolderData>
       userInfo.value = UserInfoData();
       userStat.value = const UserStat();
       loadingState.value = LoadingState.loading();
+      historyLoadingState.value = Success(HistoryData());
     }
+  }
+
+  @override
+  void onClose() {
+    if (Get.isRegistered<DownloadService>()) {
+      _downloadService.flagNotifier.remove(_syncDownloads);
+    }
+    displayType.close();
+    historyLoadingState.close();
+    downloadList.close();
+    super.onClose();
   }
 }
