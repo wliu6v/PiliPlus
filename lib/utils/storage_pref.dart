@@ -11,6 +11,7 @@ import 'package:PiliPlus/models/common/dynamic/up_panel_position.dart';
 import 'package:PiliPlus/models/common/follow_order_type.dart';
 import 'package:PiliPlus/models/common/member/tab_type.dart';
 import 'package:PiliPlus/models/common/msg/msg_unread_type.dart';
+import 'package:PiliPlus/models/common/mine_display_type.dart';
 import 'package:PiliPlus/models/common/nav_bar_config.dart';
 import 'package:PiliPlus/models/common/reply/reply_sort_type.dart';
 import 'package:PiliPlus/models/common/sponsor_block/segment_type.dart';
@@ -174,6 +175,16 @@ abstract final class Pref {
 
   static NavigationBarType get defaultHomePage =>
       NavigationBarType.values[defaultHomePageIndex];
+
+  static MineDisplayType get mineDisplayType {
+    final index = _setting.get(
+      SettingBoxKey.mineDisplayType,
+      defaultValue: MineDisplayType.favorite.index,
+    );
+    return index is int && index >= 0 && index < MineDisplayType.values.length
+        ? MineDisplayType.values[index]
+        : MineDisplayType.favorite;
+  }
 
   static int get defaultHomePageIndex => _setting.get(
     SettingBoxKey.defaultHomePage,

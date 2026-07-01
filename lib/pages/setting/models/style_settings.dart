@@ -14,6 +14,7 @@ import 'package:PiliPlus/models/common/dynamic/dynamic_badge_mode.dart';
 import 'package:PiliPlus/models/common/dynamic/up_panel_position.dart';
 import 'package:PiliPlus/models/common/home_tab_type.dart';
 import 'package:PiliPlus/models/common/msg/msg_unread_type.dart';
+import 'package:PiliPlus/models/common/mine_display_type.dart';
 import 'package:PiliPlus/models/common/nav_bar_config.dart';
 import 'package:PiliPlus/models/common/theme/theme_color_type.dart';
 import 'package:PiliPlus/models/common/theme/theme_type.dart';
@@ -101,6 +102,20 @@ List<SettingsModel> get styleSettings => [
     leading: const Icon(Icons.animation),
     getSubtitle: () => '当前：${Pref.pageTransition.name}',
     onTap: _showTransitionDialog,
+  ),
+  PopupModel<MineDisplayType>(
+    title: '“我的”页展示区域',
+    leading: const Icon(Icons.view_carousel_outlined),
+    value: () => Pref.mineDisplayType,
+    items: MineDisplayType.values,
+    onSelected: (value, setState) => GStorage.setting
+        .put(SettingBoxKey.mineDisplayType, value.index)
+        .whenComplete(() {
+          if (Get.isRegistered<MineController>()) {
+            Get.find<MineController>().setDisplayType(value);
+          }
+          setState();
+        }),
   ),
   const SwitchModel(
     title: '优化平板导航栏',

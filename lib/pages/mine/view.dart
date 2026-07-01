@@ -2,15 +2,23 @@ import 'dart:async';
 
 import 'package:PiliPlus/common/assets.dart';
 import 'package:PiliPlus/common/style.dart';
+import 'package:PiliPlus/common/widgets/badge.dart';
 import 'package:PiliPlus/common/widgets/flutter/list_tile.dart';
 import 'package:PiliPlus/common/widgets/flutter/refresh_indicator.dart';
 import 'package:PiliPlus/common/widgets/image/network_img_layer.dart';
+import 'package:PiliPlus/common/widgets/progress_bar/video_progress_indicator.dart';
 import 'package:PiliPlus/http/loading_state.dart';
 import 'package:PiliPlus/http/search.dart';
+import 'package:PiliPlus/models/common/badge_type.dart';
 import 'package:PiliPlus/models/common/image_type.dart';
+import 'package:PiliPlus/models/common/mine_display_type.dart';
 import 'package:PiliPlus/models/common/nav_bar_config.dart';
+import 'package:PiliPlus/models_new/download/bili_download_entry_info.dart';
 import 'package:PiliPlus/models_new/fav/fav_folder/list.dart';
+import 'package:PiliPlus/models_new/history/data.dart';
+import 'package:PiliPlus/models_new/history/list.dart';
 import 'package:PiliPlus/pages/common/common_page.dart';
+import 'package:PiliPlus/pages/history/widgets/item.dart';
 import 'package:PiliPlus/pages/home/view.dart';
 import 'package:PiliPlus/pages/login/controller.dart';
 import 'package:PiliPlus/pages/main/controller.dart';
@@ -18,6 +26,8 @@ import 'package:PiliPlus/pages/mine/controller.dart';
 import 'package:PiliPlus/pages/mine/widgets/item.dart';
 import 'package:PiliPlus/services/pin_service.dart';
 import 'package:PiliPlus/utils/bili_utils.dart';
+import 'package:PiliPlus/utils/date_utils.dart';
+import 'package:PiliPlus/utils/duration_utils.dart';
 import 'package:PiliPlus/utils/extension/get_ext.dart';
 import 'package:PiliPlus/utils/extension/num_ext.dart';
 import 'package:PiliPlus/utils/extension/theme_ext.dart';
@@ -43,6 +53,23 @@ class _MediaPageState extends CommonPageState<MinePage>
     with AutomaticKeepAliveClientMixin {
   final MineController controller = Get.putOrFind(MineController.new);
   late final MainController _mainController = Get.find<MainController>();
+  Worker? _tabWorker;
+
+  @override
+  void initState() {
+    super.initState();
+    _tabWorker = ever<int>(_mainController.selectedIndex, (index) {
+      if (_mainController.navigationBars[index] == NavigationBarType.mine) {
+        controller.refreshDisplayedSection();
+      }
+    });
+  }
+
+  @override
+  void dispose() {
+    _tabWorker?.dispose();
+    super.dispose();
+  }
 
   @override
   bool get wantKeepAlive => true;
@@ -89,12 +116,8 @@ class _MediaPageState extends CommonPageState<MinePage>
                   physics: const AlwaysScrollableScrollPhysics(),
                   children: [
                     _buildUserInfo(theme, secondary),
-                    _buildActions(secondary),
-                    Obx(
-                      () => controller.loadingState.value is Loading
-                          ? const SizedBox.shrink()
-                          : _buildFav(theme, secondary),
-                    ),
+                    Obx(() => _buildActions(secondary)),
+                    Obx(() => _buildDisplayArea(theme, secondary)),
                   ],
                 ),
               ),
@@ -448,7 +471,28 @@ class _MediaPageState extends CommonPageState<MinePage>
     () => controller.onRefresh(isManual: false),
   );
 
-  Widget _buildFav(ThemeData theme, Color secondary) {
+  Widget _buildDisplayArea(ThemeData theme, Color secondary) {
+    final type = controller.displayType.value;
+    return Column(
+      children: [
+        switch (type) {
+          MineDisplayType.none => const SizedBox.shrink(),
+          MineDisplayType.favorite => _buildFav(theme, secondary),
+          MineDisplayType.history => _buildHistory(theme, secondary),
+          MineDisplayType.download => _buildDownloads(theme, secondary),
+        },
+        _buildPinArea(theme, secondary),
+      ],
+    );
+  }
+
+  Widget _buildSectionHeader({
+    required ThemeData theme,
+    required Color secondary,
+    required String title,
+    int? count,
+    required VoidCallback onTap,
+  }) {
     return Column(
       children: [
         Divider(
@@ -456,7 +500,7 @@ class _MediaPageState extends CommonPageState<MinePage>
           color: theme.dividerColor.withValues(alpha: 0.1),
         ),
         ListTile(
-          onTap: () => Get.toNamed('/fav')?.whenComplete(_autoRefresh),
+          onTap: onTap,
           dense: true,
           title: Padding(
             padding: const EdgeInsets.only(left: 10),
@@ -464,15 +508,15 @@ class _MediaPageState extends CommonPageState<MinePage>
               TextSpan(
                 children: [
                   TextSpan(
-                    text: '我的收藏  ',
+                    text: '$title  ',
                     style: TextStyle(
                       fontSize: theme.textTheme.titleMedium!.fontSize,
                       fontWeight: .bold,
                     ),
                   ),
-                  if (controller.favFolderCount != null)
+                  if (count != null)
                     TextSpan(
-                      text: "${controller.favFolderCount}  ",
+                      text: "$count  ",
                       style: TextStyle(
                         fontSize: theme.textTheme.titleSmall!.fontSize,
                         color: secondary,
@@ -489,14 +533,22 @@ class _MediaPageState extends CommonPageState<MinePage>
               ),
             ),
           ),
-          trailing: IconButton(
-            tooltip: '刷新',
-            onPressed: controller.onRefresh,
-            icon: const Icon(Icons.refresh, size: 20),
-          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildFav(ThemeData theme, Color secondary) {
+    return Column(
+      children: [
+        _buildSectionHeader(
+          theme: theme,
+          secondary: secondary,
+          title: '我的收藏',
+          count: controller.favFolderCount,
+          onTap: () => Get.toNamed('/fav')?.whenComplete(_autoRefresh),
         ),
         _buildFavBody(theme, secondary, controller.loadingState.value),
-        _buildPinArea(theme, secondary),
       ],
     );
   }
@@ -570,6 +622,200 @@ class _MediaPageState extends CommonPageState<MinePage>
         ),
       ),
     };
+  }
+
+  Widget _buildHistory(ThemeData theme, Color secondary) {
+    final state = controller.historyLoadingState.value;
+    return Column(
+      children: [
+        _buildSectionHeader(
+          theme: theme,
+          secondary: secondary,
+          title: '观看记录',
+          onTap: () => Get.toNamed('/history'),
+        ),
+        switch (state) {
+          Loading() => const SizedBox(
+            height: 140,
+            child: Center(child: CircularProgressIndicator()),
+          ),
+          Success<HistoryData>(:final response) =>
+            response.list?.isNotEmpty == true
+                ? SizedBox(
+                    height: 180,
+                    child: ListView.separated(
+                      padding: const .only(left: 20, top: 8, right: 20),
+                      scrollDirection: .horizontal,
+                      itemCount: response.list!.length,
+                      separatorBuilder: (_, _) => const SizedBox(width: 12),
+                      itemBuilder: (_, index) => _buildHistoryItem(
+                        theme,
+                        response.list![index],
+                      ),
+                    ),
+                  )
+                : const SizedBox(
+                    height: 120,
+                    child: Center(child: Text('暂无观看记录')),
+                  ),
+          Error(:final errMsg) => SizedBox(
+            height: 120,
+            child: Center(child: Text(errMsg ?? '加载失败')),
+          ),
+        },
+      ],
+    );
+  }
+
+  Widget _buildHistoryItem(ThemeData theme, HistoryItemModel item) {
+    final duration = item.duration ?? 0;
+    final progress = item.progress ?? 0;
+    final hasDuration = duration > 0;
+    return SizedBox(
+      width: 240,
+      child: Material(
+        type: .transparency,
+        child: InkWell(
+          borderRadius: Style.mdRadius,
+          onTap: () => HistoryItem.open(item),
+          child: Padding(
+            padding: const .all(6),
+            child: Column(
+              crossAxisAlignment: .start,
+              children: [
+                AspectRatio(
+                  aspectRatio: Style.aspectRatio,
+                  child: LayoutBuilder(
+                    builder: (context, constraints) => Stack(
+                      children: [
+                        NetworkImgLayer(
+                          src: item.cover?.isNotEmpty == true
+                              ? item.cover
+                              : item.covers?.firstOrNull ?? '',
+                          width: constraints.maxWidth,
+                          height: constraints.maxHeight,
+                        ),
+                        if (hasDuration)
+                          PBadge(
+                            text: progress == -1
+                                ? '已看完'
+                                : '${DurationUtils.formatDuration(progress)}/${DurationUtils.formatDuration(duration)}',
+                            right: 6,
+                            bottom: 8,
+                            type: PBadgeType.gray,
+                          ),
+                        if (hasDuration && progress != 0)
+                          Positioned(
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            child: VideoProgressIndicator(
+                              color: theme.colorScheme.primary,
+                              backgroundColor:
+                                  theme.colorScheme.secondaryContainer,
+                              progress: progress == -1
+                                  ? 1
+                                  : (progress / duration).clamp(0, 1),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  item.title ?? '',
+                  maxLines: 1,
+                  overflow: .ellipsis,
+                ),
+                if (item.viewAt case final viewAt?)
+                  Text(
+                    DateFormatUtils.chatFormat(viewAt, isHistory: true),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: theme.colorScheme.outline,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDownloads(ThemeData theme, Color secondary) {
+    final list = controller.downloadList;
+    return Column(
+      children: [
+        _buildSectionHeader(
+          theme: theme,
+          secondary: secondary,
+          title: '离线缓存',
+          count: list.length,
+          onTap: () => Get.toNamed('/download'),
+        ),
+        if (list.isEmpty)
+          const SizedBox(
+            height: 120,
+            child: Center(child: Text('暂无离线缓存')),
+          )
+        else
+          SizedBox(
+            height: 180,
+            child: ListView.separated(
+              padding: const .only(left: 20, top: 8, right: 20),
+              scrollDirection: .horizontal,
+              itemCount: list.length,
+              separatorBuilder: (_, _) => const SizedBox(width: 12),
+              itemBuilder: (_, index) => _buildDownloadItem(theme, list[index]),
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildDownloadItem(
+    ThemeData theme,
+    BiliDownloadEntryInfo item,
+  ) {
+    return SizedBox(
+      width: 240,
+      child: Material(
+        type: .transparency,
+        child: InkWell(
+          borderRadius: Style.mdRadius,
+          onTap: () => Get.toNamed('/download'),
+          child: Padding(
+            padding: const .all(6),
+            child: Column(
+              crossAxisAlignment: .start,
+              children: [
+                AspectRatio(
+                  aspectRatio: Style.aspectRatio,
+                  child: NetworkImgLayer(
+                    src: item.cover,
+                    width: 240,
+                    height: 135,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Text(
+                  item.showTitle,
+                  maxLines: 1,
+                  overflow: .ellipsis,
+                ),
+                Text(
+                  DateFormatUtils.chatFormat(item.timeUpdateStamp),
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: theme.colorScheme.outline,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
   }
 
   Widget _buildPinArea(ThemeData theme, Color secondary) {

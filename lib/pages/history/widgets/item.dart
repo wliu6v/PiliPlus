@@ -31,12 +31,72 @@ class HistoryItem extends StatelessWidget {
     required this.onDelete,
   });
 
+  static Future<void> open(HistoryItemModel item) async {
+    final aid = item.history.oid!;
+    final bvid = item.history.bvid ?? IdUtils.av2bv(aid);
+    final business = item.history.business;
+    if (business?.contains('article') == true) {
+      PageUtils.toDupNamed(
+        '/articlePage',
+        parameters: {
+          'id': business == 'article-list'
+              ? '${item.history.cid}'
+              : '${item.history.oid}',
+          'type': 'read',
+        },
+      );
+    } else if (business == 'live') {
+      if (item.liveStatus == 1) {
+        PageUtils.toLiveRoom(item.history.oid);
+      } else {
+        SmartDialog.showToast('直播未开播');
+      }
+    } else if (business == 'pgc') {
+      PageUtils.viewPgc(
+        epId: item.history.epid,
+        progress: item.playbackProgress,
+      );
+    } else if (business == 'cheese') {
+      if (item.uri?.isNotEmpty == true) {
+        PageUtils.viewPgcFromUri(
+          item.uri!,
+          isPgc: false,
+          aid: item.history.oid,
+          progress: item.playbackProgress,
+        );
+      }
+    } else {
+      int? cid = item.history.cid;
+      Dimension? dimension;
+      if (cid == null) {
+        if (await SearchHttp.ab2cWithDimension(
+              aid: aid,
+              bvid: bvid,
+              part: item.history.page,
+            )
+            case final res?) {
+          cid = res.cid;
+          dimension = res.dimension;
+        }
+      }
+      if (cid != null) {
+        PageUtils.toVideoPage(
+          aid: aid,
+          bvid: bvid,
+          cid: cid,
+          cover: item.cover,
+          title: item.title,
+          dimension: dimension,
+          progress: item.playbackProgress,
+        );
+      }
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final hasDuration = item.duration != null && item.duration != 0;
-    int aid = item.history.oid!;
-    String bvid = item.history.bvid ?? IdUtils.av2bv(aid);
     final business = item.history.business;
     final enableMultiSelect = ctr.enableMultiSelect.value;
 
@@ -49,67 +109,7 @@ class HistoryItem extends StatelessWidget {
     return Material(
       type: MaterialType.transparency,
       child: InkWell(
-        onTap: enableMultiSelect
-            ? () => ctr.onSelect(item)
-            : () async {
-                if (business?.contains('article') == true) {
-                  PageUtils.toDupNamed(
-                    '/articlePage',
-                    parameters: {
-                      'id': business == 'article-list'
-                          ? '${item.history.cid}'
-                          : '${item.history.oid}',
-                      'type': 'read',
-                    },
-                  );
-                } else if (business == 'live') {
-                  if (item.liveStatus == 1) {
-                    PageUtils.toLiveRoom(item.history.oid);
-                  } else {
-                    SmartDialog.showToast('直播未开播');
-                  }
-                } else if (business == 'pgc') {
-                  PageUtils.viewPgc(
-                    epId: item.history.epid,
-                    progress: item.playbackProgress,
-                  );
-                } else if (business == 'cheese') {
-                  if (item.uri?.isNotEmpty == true) {
-                    PageUtils.viewPgcFromUri(
-                      item.uri!,
-                      isPgc: false,
-                      aid: item.history.oid,
-                      progress: item.playbackProgress,
-                    );
-                  }
-                } else {
-                  int? cid = item.history.cid;
-                  Dimension? dimension;
-                  if (cid == null) {
-                    if (await SearchHttp.ab2cWithDimension(
-                          aid: aid,
-                          bvid: bvid,
-                          part: item.history.page,
-                        )
-                        case final res?) {
-                      cid = res.cid;
-                      dimension = res.dimension;
-                    }
-                  }
-                  if (cid != null) {
-                    // TODO: dimension
-                    PageUtils.toVideoPage(
-                      aid: aid,
-                      bvid: bvid,
-                      cid: cid,
-                      cover: item.cover,
-                      title: item.title,
-                      dimension: dimension,
-                      progress: item.playbackProgress,
-                    );
-                  }
-                }
-              },
+        onTap: enableMultiSelect ? () => ctr.onSelect(item) : () => open(item),
         onLongPress: onLongPress,
         onSecondaryTap: PlatformUtils.isMobile ? null : onLongPress,
         child: Stack(

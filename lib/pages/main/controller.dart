@@ -12,6 +12,7 @@ import 'package:PiliPlus/models/common/nav_bar_config.dart';
 import 'package:PiliPlus/pages/dynamics/controller.dart';
 import 'package:PiliPlus/pages/home/controller.dart';
 import 'package:PiliPlus/pages/later/page_controller.dart';
+import 'package:PiliPlus/pages/mine/controller.dart';
 import 'package:PiliPlus/pages/mine/view.dart';
 import 'package:PiliPlus/services/account_service.dart';
 import 'package:PiliPlus/utils/extension/get_ext.dart';
@@ -313,6 +314,10 @@ class MainController extends GetxController
         setDynCount();
       }
     } else {
+      if (currentNav == NavigationBarType.mine &&
+          Get.isRegistered<MineController>()) {
+        Get.find<MineController>().refreshDisplayedSection();
+      }
       int now = DateTime.now().millisecondsSinceEpoch;
       if (now - _lastSelectTime < 500) {
         EasyThrottle.throttle(
