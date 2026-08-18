@@ -11,10 +11,10 @@ enum PinType {
 /// Pin 状态变化通知
 class PinNotifier {
   static final RxBool _pinChanged = false.obs;
-  
+
   /// 监听 Pin 状态变化
   static RxBool get pinChanged => _pinChanged;
-  
+
   /// 通知 Pin 状态已变化
   static void notifyChanged() {
     _pinChanged.value = !_pinChanged.value;
@@ -42,24 +42,24 @@ class PinItem {
   });
 
   Map<String, dynamic> toJson() => {
-        'type': type.index,
-        'id': id,
-        'aid': aid,
-        'title': title,
-        'cover': cover,
-        'author': author,
-        'authorMid': authorMid,
-      };
+    'type': type.index,
+    'id': id,
+    'aid': aid,
+    'title': title,
+    'cover': cover,
+    'author': author,
+    'authorMid': authorMid,
+  };
 
   factory PinItem.fromJson(Map<String, dynamic> json) => PinItem(
-        type: PinType.values[json['type'] as int],
-        id: json['id'] as String,
-        aid: json['aid'] as String?,
-        title: json['title'] as String,
-        cover: json['cover'] as String,
-        author: json['author'] as String?,
-        authorMid: json['authorMid'] as int?,
-      );
+    type: PinType.values[json['type'] as int],
+    id: json['id'] as String,
+    aid: json['aid'] as String?,
+    title: json['title'] as String,
+    cover: json['cover'] as String,
+    author: json['author'] as String?,
+    authorMid: json['authorMid'] as int?,
+  );
 }
 
 /// Pin 服务
@@ -101,4 +101,3 @@ class PinService {
     return GStorage.localCache.get(_key) != null;
   }
 }
-

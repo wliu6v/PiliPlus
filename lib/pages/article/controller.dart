@@ -188,14 +188,18 @@ class ArticleController extends CommonDynController {
       _restoreReadingPosition();
     }
   }
-  
+
   /// 恢复阅读位置
   void _restoreReadingPosition() {
     if (_hasRestoredPosition) return;
     _hasRestoredPosition = true;
-    
-    final savedPosition = ArticleReadingPositionService.getReadingPosition(_articleKey);
-    if (savedPosition != null && savedPosition > 0 && articleScrollController != null) {
+
+    final savedPosition = ArticleReadingPositionService.getReadingPosition(
+      _articleKey,
+    );
+    if (savedPosition != null &&
+        savedPosition > 0 &&
+        articleScrollController != null) {
       // 延迟一帧后恢复位置，确保内容已渲染
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (articleScrollController?.hasClients == true) {
@@ -204,7 +208,7 @@ class ArticleController extends CommonDynController {
       });
     }
   }
-  
+
   /// 保存阅读位置（使用防抖）
   void saveReadingPosition(double position) {
     if (position <= 0) return;
@@ -212,11 +216,14 @@ class ArticleController extends CommonDynController {
       'saveArticlePosition_$_articleKey',
       const Duration(milliseconds: 1000),
       () {
-        ArticleReadingPositionService.saveReadingPosition(_articleKey, position);
+        ArticleReadingPositionService.saveReadingPosition(
+          _articleKey,
+          position,
+        );
       },
     );
   }
-  
+
   // scrollController 在 view 中设置，用于恢复阅读位置
   ScrollController? articleScrollController;
 

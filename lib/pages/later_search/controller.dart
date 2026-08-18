@@ -49,10 +49,11 @@ class LaterSearchController
     int? aid,
   ) async {
     // 搜索页面不需要撤销功能，直接删除
-    if (loadingState.value.data == null || index >= loadingState.value.data!.length) {
+    if (loadingState.value.data == null ||
+        index >= loadingState.value.data!.length) {
       return;
     }
-    
+
     final res = await UserHttp.toViewDel(aids: aid.toString());
     if (res.isSuccess) {
       loadingState.value.data!.removeAt(index);
