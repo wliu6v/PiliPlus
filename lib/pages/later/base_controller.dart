@@ -14,7 +14,7 @@ class LaterBaseController extends GetxController {
 
   late double dx = 0;
   late final RxBool isPlayAll = Pref.enablePlayAll.obs;
-  
+
   // 当前激活的 tab 索引
   RxInt currentTabIndex = 0.obs;
 
@@ -34,12 +34,12 @@ class LaterBaseController extends GetxController {
   void showUndoButton(LaterItemModel item, int index) {
     // 取消之前的定时器
     undoTimer?.cancel();
-    
+
     deletedItem = item;
     deletedIndex = index;
     isDeleteRequestCompleted = false;
     showUndo.value = true;
-    
+
     // 5秒后自动隐藏
     undoTimer = Timer(const Duration(seconds: 5), () {
       showUndo.value = false;

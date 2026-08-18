@@ -1167,12 +1167,12 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
             final cover = videoDetailController.cover.value;
             final bvid = videoDetailController.bvid;
             final aid = videoDetailController.aid;
-            
+
             // 获取标题和作者信息
             String title = '';
             String? author;
             int? authorMid;
-            
+
             if (videoDetailController.isUgc) {
               final videoDetail = ugcIntroController.videoDetail.value;
               title = videoDetail.title ?? '';
@@ -1187,7 +1187,7 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
               // 本地文件，使用默认值
               title = '本地视频';
             }
-            
+
             await PinService.setPinnedItem(
               PinItem(
                 type: PinType.video,
