@@ -49,6 +49,8 @@ abstract final class SettingBoxKey {
       continuePlayInBackground = 'continuePlayInBackground',
       // 长按直接添加到稍后再看
       longPressToWatchLater = 'longPressToWatchLater',
+      // 自动移出稍后再看
+      autoRemoveFromWatchLater = 'autoRemoveFromWatchLater',
       appRcmd = 'appRcmd',
       enableSaveLastData = 'enableSaveLastData',
       minDurationForRcmd = 'minDurationForRcmd',

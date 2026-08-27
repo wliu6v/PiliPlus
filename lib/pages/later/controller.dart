@@ -306,4 +306,19 @@ class LaterController extends MultiSelectController<LaterData, LaterItemModel>
     scrollController.jumpToTop();
     return super.onReload();
   }
+
+  static void removeByAid(int aid) {
+    for (final type in LaterViewType.values) {
+      try {
+        final ctr = Get.find<LaterController>(tag: type.type.toString());
+        final list = ctr.loadingState.value.dataOrNull;
+        if (list == null) continue;
+        final index = list.indexWhere((e) => e.aid == aid);
+        if (index == -1) continue;
+        list.removeAt(index);
+        ctr.loadingState.refresh();
+        ctr.updateCount?.call(1);
+      } catch (_) {}
+    }
+  }
 }

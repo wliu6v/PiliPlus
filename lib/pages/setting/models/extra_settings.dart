@@ -515,6 +515,13 @@ List<SettingsModel> get extraSettings => [
     setKey: SettingBoxKey.longPressToWatchLater,
     defaultVal: false,
   ),
+  const SwitchModel(
+    title: '自动移出稍后再看',
+    subtitle: '从稍后再看进入时，播放完毕或进度达95%后点下一集则自动移除',
+    leading: Icon(Icons.playlist_remove),
+    setKey: SettingBoxKey.autoRemoveFromWatchLater,
+    defaultVal: false,
+  ),
   SwitchModel(
     title: '评论区搜索关键词',
     subtitle: '展示评论区搜索关键词',

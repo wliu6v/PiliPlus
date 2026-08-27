@@ -278,7 +278,7 @@ class PlayerFocus extends StatelessWidget {
 
           case LogicalKeyboardKey.bracketRight:
             if (introController case final introController?) {
-              if (!introController.nextPlay()) {
+              if (!introController.nextPlayFromUser()) {
                 SmartDialog.showToast('已经是最后一集了');
               }
             }

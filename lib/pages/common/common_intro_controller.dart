@@ -9,6 +9,7 @@ import 'package:PiliPlus/models_new/fav/fav_folder/data.dart';
 import 'package:PiliPlus/models_new/video/video_detail/data.dart';
 import 'package:PiliPlus/models_new/video/video_detail/stat_detail.dart';
 import 'package:PiliPlus/models_new/video/video_tag/data.dart';
+import 'package:PiliPlus/pages/later/controller.dart';
 import 'package:PiliPlus/pages/video/controller.dart';
 import 'package:PiliPlus/pages/video/introduction/ugc/widgets/triple_mixin.dart';
 import 'package:PiliPlus/utils/accounts.dart';
@@ -154,6 +155,49 @@ abstract class CommonIntroController extends GetxController
         ? UserHttp.toViewDel(aids: IdUtils.bv2av(bvid).toString())
         : UserHttp.toViewLater(bvid: bvid));
     if (res.isSuccess) hasLater.toggle();
+  }
+
+  bool get _isWatchLaterProgressOver95 {
+    final duration = videoDetailCtr.plPlayerController.durationInMilliseconds;
+    if (duration <= 0) {
+      return false;
+    }
+    return videoDetailCtr.plPlayerController.positionInMilliseconds / duration >=
+        0.95;
+  }
+
+  Future<void> autoRemoveFromWatchLater({required bool force}) async {
+    if (!Pref.autoRemoveFromWatchLater) {
+      return;
+    }
+    if (videoDetailCtr.sourceType != SourceType.watchLater) {
+      return;
+    }
+    if (!hasLater.value) {
+      return;
+    }
+    if (!force && !_isWatchLaterProgressOver95) {
+      return;
+    }
+
+    hasLater.value = false;
+    final aid = IdUtils.bv2av(bvid);
+    final res = await UserHttp.toViewDel(aids: aid.toString());
+    if (res.isSuccess) {
+      videoDetailCtr.mediaList.removeWhere((e) => e.aid == aid);
+      final count = videoDetailCtr.args['count'];
+      if (count is int && count > 0) {
+        videoDetailCtr.args['count'] = count - 1;
+      }
+      LaterController.removeByAid(aid);
+    } else {
+      hasLater.value = true;
+    }
+  }
+
+  bool nextPlayFromUser() {
+    autoRemoveFromWatchLater(force: false);
+    return nextPlay();
   }
 }
 

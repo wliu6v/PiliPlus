@@ -252,6 +252,8 @@ class _VideoDetailPageVState extends State<VideoDetailPageV>
         }
       } catch (_) {}
 
+      introController.autoRemoveFromWatchLater(force: true);
+
       bool exitFlag = true;
 
       /// 顺序播放 列表循环

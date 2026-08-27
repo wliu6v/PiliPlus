@@ -437,7 +437,7 @@ class _PLVideoPlayerState extends State<PLVideoPlayer>
           color: Colors.white,
         ),
         onTap: () {
-          if (!introController.nextPlay()) {
+          if (!introController.nextPlayFromUser()) {
             SmartDialog.showToast('已经是最后一集了');
           }
         },
